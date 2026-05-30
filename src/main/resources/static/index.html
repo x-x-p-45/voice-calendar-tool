@@ -340,7 +340,7 @@
         <div id="permBar" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px">
             ⚠️ 桌面通知未开启，到时间无法提醒！
             <button onclick="requestNotifyDirect()" style="margin-left:8px;padding:4px 12px;background:#ffc107;border:none;border-radius:4px;cursor:pointer;font-weight:600">🔔 点击开启通知</button>
-            <span style="display:block;margin-top:4px;color:#888;font-size:11px">如无效：Chrome 设置 → 隐私与安全 → 网站设置 → 通知 → 允许 localhost:8080</span>
+            <span style="display:block;margin-top:4px;color:#888;font-size:11px">如无效：Edge 地址栏输入 edge://settings/content/notifications → 在「允许」中添加 http://localhost:8080</span>
         </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;color:var(--text-secondary)">
             <span id="reminderStatus">⏳ 检测中...</span>
@@ -743,7 +743,7 @@
                 console.log('Notification permission:', p);
                 updatePermUI();
                 if (p === 'granted') showToast('✅ 通知已开启！', 'success');
-                else showToast('⚠️ 请求被拒，请手动：Chrome设置→隐私→网站设置→通知→允许 localhost:8080', 'error');
+                else showToast('⚠️ 请手动：Edge地址栏输入 edge://settings/content/notifications → 允许 localhost:8080', 'error');
             });
         }
 
