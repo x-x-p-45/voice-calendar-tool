@@ -166,7 +166,13 @@ public class ScheduleServiceImpl implements ScheduleService {
 
     @Override
     public List<Schedule> listByDateRange(Date start, Date end) {
-        return scheduleMapper.selectByDateRange(start, end);
+        // 将 end 设为当天 23:59:59，确保包含结束日期当天的所有日程
+        Calendar cal = Calendar.getInstance();
+        cal.setTime(end);
+        cal.set(Calendar.HOUR_OF_DAY, 23);
+        cal.set(Calendar.MINUTE, 59);
+        cal.set(Calendar.SECOND, 59);
+        return scheduleMapper.selectByDateRange(start, cal.getTime());
     }
 
     @Override
