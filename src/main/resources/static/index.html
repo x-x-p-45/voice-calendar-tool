@@ -133,6 +133,66 @@
             cursor: pointer;
         }
 
+        /* 日历 */
+        .calendar-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+        .cal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .cal-header h3 { font-size: 18px; }
+        .cal-header button {
+            padding: 6px 14px;
+            background: var(--bg);
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background .2s;
+        }
+        .cal-header button:hover { background: var(--border); }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
+        .cal-day-name { font-size: 12px; color: var(--text-secondary); padding: 6px 0; font-weight: 600; }
+        .cal-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            position: relative;
+            transition: background .15s;
+        }
+        .cal-day:hover { background: var(--bg); }
+        .cal-day.today { background: var(--primary); color: #fff; font-weight: 700; }
+        .cal-day.other-month { color: #cbd5e1; }
+        .cal-day.selected { background: #eef2ff; outline: 2px solid var(--primary); }
+        .cal-dot {
+            width: 5px; height: 5px; border-radius: 50%;
+            background: var(--primary);
+            position: absolute;
+            bottom: 4px;
+        }
+        .cal-day.today .cal-dot { background: #fff; }
+        .cal-day.has-event { font-weight: 600; }
+
+        /* 选中日期标题 */
+        .selected-date-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 12px;
+        }
+
         /* 日程列表 */
         .schedule-list { display: flex; flex-direction: column; gap: 10px; }
         .schedule-card {
@@ -244,6 +304,16 @@
             <p class="input-hint">💡 支持：今天/明天/后天 + 上午/下午/晚上 + 时间点，或 yyyy-MM-dd HH:mm</p>
         </div>
 
+        <!-- 日历视图 -->
+        <div class="calendar-card">
+            <div class="cal-header">
+                <button onclick="prevMonth()">◀</button>
+                <h3 id="calTitle">2025年12月</h3>
+                <button onclick="nextMonth()">▶</button>
+            </div>
+            <div class="cal-grid" id="calGrid"></div>
+        </div>
+
         <!-- 筛选栏 -->
         <div class="filter-bar">
             <input type="date" id="startDate">
@@ -329,8 +399,13 @@
         async function loadAllSchedules() {
             document.getElementById('startDate').value = '';
             document.getElementById('endDate').value = '';
+            document.querySelectorAll('.cal-day.selected').forEach(el => el.classList.remove('selected'));
             const data = await api(`${API}/list`);
-            if (data.code === 200) renderSchedules(data.data);
+            if (data.code === 200) {
+                buildScheduleMap(data.data);
+                renderCalendar();
+                renderSchedules(data.data);
+            }
         }
 
         async function filterSchedules() {
@@ -338,7 +413,11 @@
             const e = document.getElementById('endDate').value;
             if (!s || !e) { showToast('请选择日期范围', 'error'); return; }
             const data = await api(`${API}/listByRange?start=${s}&end=${e}`);
-            if (data.code === 200) renderSchedules(data.data);
+            if (data.code === 200) {
+                buildScheduleMap(data.data);
+                renderCalendar();
+                renderSchedules(data.data);
+            }
         }
 
         async function deleteSchedule(id) {
@@ -361,6 +440,73 @@
             } else {
                 showToast(data.msg, 'error');
             }
+        }
+
+        // ========== 日历视图 ==========
+        let calYear, calMonth;
+        const now = new Date();
+        calYear = now.getFullYear();
+        calMonth = now.getMonth() + 1;
+        let scheduleDates = {}; // { '2025-12-25': [schedules...] }
+
+        function prevMonth() {
+            calMonth--; if (calMonth < 1) { calMonth = 12; calYear--; }
+            renderCalendar();
+        }
+        function nextMonth() {
+            calMonth++; if (calMonth > 12) { calMonth = 1; calYear++; }
+            renderCalendar();
+        }
+
+        function buildScheduleMap(list) {
+            scheduleDates = {};
+            list.forEach(s => {
+                const d = s.scheduleTime ? s.scheduleTime.split(' ')[0] : null;
+                if (d) {
+                    if (!scheduleDates[d]) scheduleDates[d] = [];
+                    scheduleDates[d].push(s);
+                }
+            });
+        }
+
+        function renderCalendar() {
+            document.getElementById('calTitle').textContent = `${calYear}年${calMonth}月`;
+            const grid = document.getElementById('calGrid');
+            const days = ['日','一','二','三','四','五','六'];
+            let html = days.map(d => `<div class="cal-day-name">${d}</div>`).join('');
+
+            const firstDay = new Date(calYear, calMonth - 1, 1).getDay();
+            const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+            const daysInPrev = new Date(calYear, calMonth - 1, 0).getDate();
+
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+            for (let i = firstDay - 1; i >= 0; i--) {
+                const d = daysInPrev - i;
+                const ds = `${calMonth === 1 ? calYear-1 : calYear}-${String(calMonth === 1 ? 12 : calMonth-1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                html += `<div class="cal-day other-month" onclick="pickDate('${ds}')">${d}</div>`;
+            }
+            for (let d = 1; d <= daysInMonth; d++) {
+                const ds = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                const isToday = ds === todayStr;
+                const hasEvt = scheduleDates[ds] && scheduleDates[ds].length > 0;
+                html += `<div class="cal-day${isToday ? ' today' : ''}${hasEvt ? ' has-event' : ''}" onclick="pickDate('${ds}')" id="cal-${ds}">${d}${hasEvt ? '<span class="cal-dot"></span>' : ''}</div>`;
+            }
+            const remaining = 42 - (firstDay + daysInMonth);
+            for (let d = 1; d <= remaining; d++) {
+                const ds = `${calMonth === 12 ? calYear+1 : calYear}-${String(calMonth === 12 ? 1 : calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+                html += `<div class="cal-day other-month" onclick="pickDate('${ds}')">${d}</div>`;
+            }
+            grid.innerHTML = html;
+        }
+
+        async function pickDate(ds) {
+            document.querySelectorAll('.cal-day.selected').forEach(el => el.classList.remove('selected'));
+            document.getElementById(`cal-${ds}`)?.classList.add('selected');
+            document.getElementById('startDate').value = ds;
+            document.getElementById('endDate').value = ds;
+            const data = await api(`${API}/listByRange?start=${ds}&end=${ds}`);
+            if (data.code === 200) renderSchedules(data.data);
         }
 
         // ========== 语音识别 ==========
@@ -462,6 +608,7 @@
         });
 
         // 初始加载
+        renderCalendar();
         loadAllSchedules();
     </script>
 </body>
