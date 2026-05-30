@@ -714,10 +714,24 @@
         }
 
         // 请求通知权限
+        async function requestNotify() {
+            if (!('Notification' in window)) {
+                showToast('⚠️ 您的浏览器不支持桌面通知，请使用 Chrome', 'error');
+                return 'unsupported';
+            }
+            if (Notification.permission === 'granted') return 'granted';
+            if (Notification.permission === 'denied') {
+                showToast('⚠️ 通知已被阻止！请在浏览器地址栏左侧点击锁图标→通知→允许', 'error');
+                return 'denied';
+            }
+            const p = await Notification.requestPermission();
+            if (p === 'granted') showToast('✅ 通知权限已开启！', 'success');
+            else showToast('⚠️ 您拒绝了通知权限', 'error');
+            return p;
+        }
+
         if ('Notification' in window && Notification.permission === 'default') {
-            document.getElementById('micBtn').addEventListener('click', () => {
-                Notification.requestPermission();
-            }, { once: true });
+            document.getElementById('micBtn').addEventListener('click', () => Notification.requestPermission(), { once: true });
         }
 
         // 每20秒检查一次
@@ -745,18 +759,15 @@
         updateReminderStatus();
 
         // 测试：立刻弹出通知
-        function testReminder() {
-            if (Notification.permission !== 'granted') {
-                Notification.requestPermission().then(p => {
-                    if (p === 'granted') showToast('✅ 权限已开启，再点一次测试');
+        async function testReminder() {
+            const perm = await requestNotify();
+            if (perm === 'granted') {
+                new Notification('🔔 测试提醒', {
+                    body: '如果您看到这条消息，说明桌面通知功能正常！',
+                    requireInteraction: true
                 });
-                return;
+                showToast('✅ 桌面通知已发送！', 'success');
             }
-            new Notification('🔔 测试提醒', {
-                body: '如果您看到这条消息，说明桌面通知功能正常！',
-                requireInteraction: true
-            });
-            showToast('✅ 桌面通知已发送！', 'success');
         }
 
         // 快速创建1分钟后提醒
