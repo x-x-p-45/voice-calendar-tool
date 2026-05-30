@@ -133,56 +133,59 @@
             cursor: pointer;
         }
 
-        /* 日历 */
+        /* 日历 - 紧凑版 */
         .calendar-card {
             background: var(--card);
-            border-radius: 12px;
-            padding: 20px;
+            border-radius: 10px;
+            padding: 14px 16px;
             box-shadow: var(--shadow);
-            margin-bottom: 24px;
+            margin-bottom: 16px;
         }
         .cal-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 16px;
+            margin-bottom: 8px;
         }
-        .cal-header h3 { font-size: 18px; }
+        .cal-header h3 { font-size: 15px; font-weight: 600; }
         .cal-header button {
-            padding: 6px 14px;
+            padding: 3px 10px;
             background: var(--bg);
-            border: 1.5px solid var(--border);
-            border-radius: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 16px;
-            transition: background .2s;
+            font-size: 14px;
+            transition: background .15s;
+            line-height: 1.4;
         }
         .cal-header button:hover { background: var(--border); }
-        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; text-align: center; }
-        .cal-day-name { font-size: 12px; color: var(--text-secondary); padding: 6px 0; font-weight: 600; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; text-align: center; }
+        .cal-day-name { font-size: 11px; color: var(--text-secondary); padding: 3px 0; font-weight: 500; }
         .cal-day {
-            aspect-ratio: 1;
+            padding: 6px 2px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 13px;
             position: relative;
-            transition: background .15s;
+            transition: background .1s;
+            line-height: 1.2;
         }
         .cal-day:hover { background: var(--bg); }
         .cal-day.today { background: var(--primary); color: #fff; font-weight: 700; }
         .cal-day.other-month { color: #cbd5e1; }
+        .cal-day.past { color: #cbd5e1; }
         .cal-day.selected { background: #eef2ff; outline: 2px solid var(--primary); }
         .cal-dot {
-            width: 5px; height: 5px; border-radius: 50%;
+            width: 4px; height: 4px; border-radius: 50%;
             background: var(--primary);
-            position: absolute;
-            bottom: 4px;
+            margin-top: 2px;
         }
         .cal-day.today .cal-dot { background: #fff; }
+        .cal-day.past .cal-dot { background: #cbd5e1; }
         .cal-day.has-event { font-weight: 600; }
 
         /* 选中日期标题 */
@@ -249,6 +252,25 @@
             transition: all .2s;
         }
         .btn-delete:hover { background: #fef2f2; }
+
+        /* 已过期日程 */
+        .schedule-card.past {
+            opacity: 0.55;
+            background: #f8fafc;
+        }
+        .schedule-card.past .schedule-title {
+            text-decoration: line-through;
+            color: var(--text-secondary);
+        }
+        .past-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            background: #e2e8f0;
+            color: #94a3b8;
+        }
 
         /* 空状态 */
         .empty-state {
@@ -357,18 +379,28 @@
             return d.toLocaleString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
         }
 
+        function isPast(datetimeStr) {
+            return new Date(datetimeStr) < new Date();
+        }
+
         function renderSchedules(list) {
             const container = document.getElementById('scheduleList');
-            document.getElementById('countInfo').textContent = `共 ${list.length} 条`;
+            const upcoming = list.filter(s => !isPast(s.scheduleTime));
+            const past = list.filter(s => isPast(s.scheduleTime));
+            document.getElementById('countInfo').textContent = `共 ${list.length} 条（${upcoming.length} 待办，${past.length} 已过）`;
 
             if (!list.length) {
                 container.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>暂无日程</p></div>`;
                 return;
             }
-            container.innerHTML = list.map(s => `
-                <div class="schedule-card">
+            // 未过期在前，已过期在后
+            const sorted = [...upcoming, ...past];
+            container.innerHTML = sorted.map(s => {
+                const pastClass = isPast(s.scheduleTime) ? ' past' : '';
+                return `
+                <div class="schedule-card${pastClass}">
                     <div class="schedule-info">
-                        <div class="schedule-title">${s.eventTitle || '未命名'}</div>
+                        <div class="schedule-title">${s.eventTitle || '未命名'}${pastClass ? ' <span class="past-badge">已完成</span>' : ''}</div>
                         <div class="schedule-time">📅 ${formatTime(s.scheduleTime)}</div>
                     </div>
                     <div class="schedule-actions">
@@ -379,7 +411,7 @@
                         <button class="btn-delete" onclick="deleteSchedule(${s.id})">🗑 删除</button>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         function hasAmbiguousTime(text) {
@@ -522,8 +554,9 @@
             for (let d = 1; d <= daysInMonth; d++) {
                 const ds = `${calYear}-${String(calMonth).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
                 const isToday = ds === todayStr;
+                const isPastDay = ds < todayStr;
                 const hasEvt = scheduleDates[ds] && scheduleDates[ds].length > 0;
-                html += `<div class="cal-day${isToday ? ' today' : ''}${hasEvt ? ' has-event' : ''}" onclick="pickDate('${ds}')" id="cal-${ds}">${d}${hasEvt ? '<span class="cal-dot"></span>' : ''}</div>`;
+                html += `<div class="cal-day${isToday ? ' today' : ''}${isPastDay ? ' past' : ''}${hasEvt ? ' has-event' : ''}" onclick="pickDate('${ds}')" id="cal-${ds}">${d}${hasEvt ? '<span class="cal-dot"></span>' : ''}</div>`;
             }
             const remaining = 42 - (firstDay + daysInMonth);
             for (let d = 1; d <= remaining; d++) {
