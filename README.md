@@ -4,7 +4,8 @@
 
 **本作品为七牛云 X Engineer 暑期实训营第二批次参赛作品。**
 
-> 📺 **Demo 演示视频**：[点击观看](#)（录制后替换链接）
+> 🌐 **在线体验**：https://voice-calendar-tool-production.up.railway.app  
+> 📺 **Demo 演示视频**：[待上传](#)
 
 ---
 
