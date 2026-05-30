@@ -65,4 +65,29 @@ public interface ScheduleService {
      * @return 影响行数
      */
     int updateRemindStatus(Integer id, Integer isRemind);
+
+    /**
+     * 批量删除日程
+     *
+     * @param ids 日程 ID 列表
+     * @return 删除行数
+     */
+    int batchDelete(List<Integer> ids);
+
+    /**
+     * 批量更新提醒状态
+     *
+     * @param ids      日程 ID 列表
+     * @param isRemind 提醒状态
+     * @return 更新行数
+     */
+    int batchUpdateRemind(List<Integer> ids, Integer isRemind);
+
+    /**
+     * 按关键词搜索日程
+     *
+     * @param keyword 搜索关键词
+     * @return 匹配的日程列表
+     */
+    List<Schedule> searchByTitle(String keyword);
 }

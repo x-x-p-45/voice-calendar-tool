@@ -5,6 +5,7 @@ import org.apache.ibatis.annotations.*;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 日程数据访问层
@@ -70,4 +71,42 @@ public interface ScheduleMapper {
      */
     @Update("UPDATE schedule SET is_remind = #{isRemind} WHERE id = #{id}")
     int updateRemindStatus(@Param("id") Integer id, @Param("isRemind") Integer isRemind);
+
+    /**
+     * 批量删除日程
+     *
+     * @param ids 日程 ID 列表
+     * @return 删除行数
+     */
+    @Delete("<script>" +
+            "DELETE FROM schedule WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            "</script>")
+    int batchDelete(@Param("ids") List<Integer> ids);
+
+    /**
+     * 批量更新提醒状态
+     *
+     * @param ids      日程 ID 列表
+     * @param isRemind 提醒状态（0/1）
+     * @return 更新行数
+     */
+    @Update("<script>" +
+            "UPDATE schedule SET is_remind = #{isRemind} WHERE id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            "</script>")
+    int batchUpdateRemind(@Param("ids") List<Integer> ids, @Param("isRemind") Integer isRemind);
+
+    /**
+     * 根据标题模糊搜索日程
+     *
+     * @param keyword 搜索关键词
+     * @return 匹配的日程列表
+     */
+    @Select("SELECT * FROM schedule WHERE event_title LIKE CONCAT('%', #{keyword}, '%') ORDER BY schedule_time DESC")
+    List<Schedule> searchByTitle(@Param("keyword") String keyword);
 }
