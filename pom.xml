@@ -50,6 +50,13 @@
             <artifactId>httpclient</artifactId>
         </dependency>
 
+        <!-- SpringDoc OpenAPI 接口文档 -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-ui</artifactId>
+            <version>1.7.0</version>
+        </dependency>
+
         <!-- Lombok 简化代码 -->
         <dependency>
             <groupId>org.projectlombok</groupId>
