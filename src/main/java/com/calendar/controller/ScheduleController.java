@@ -110,4 +110,52 @@ public class ScheduleController {
         }
         return R.error("日程不存在");
     }
+
+    /**
+     * 批量删除日程
+     *
+     * @param ids 日程 ID 列表（逗号分隔，如 1,2,3）
+     * @return 删除结果
+     */
+    @DeleteMapping("/batchDelete")
+    public R<String> batchDelete(@RequestParam List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return R.error("请提供要删除的日程ID列表");
+        }
+        int rows = scheduleService.batchDelete(ids);
+        return R.success("成功删除 " + rows + " 条日程");
+    }
+
+    /**
+     * 批量更新提醒状态
+     *
+     * @param ids      日程 ID 列表（逗号分隔）
+     * @param isRemind 提醒状态（0/1）
+     * @return 更新结果
+     */
+    @PutMapping("/batchRemind")
+    public R<String> batchUpdateRemind(@RequestParam List<Integer> ids, @RequestParam Integer isRemind) {
+        if (ids == null || ids.isEmpty()) {
+            return R.error("请提供日程ID列表");
+        }
+        if (isRemind == null || (isRemind != 0 && isRemind != 1)) {
+            return R.error("提醒状态只能为 0 或 1");
+        }
+        int rows = scheduleService.batchUpdateRemind(ids, isRemind);
+        return R.success("成功更新 " + rows + " 条日程提醒状态");
+    }
+
+    /**
+     * 按关键词搜索日程
+     *
+     * @param keyword 搜索关键词
+     * @return 匹配的日程列表
+     */
+    @GetMapping("/search")
+    public R<List<Schedule>> search(@RequestParam String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return R.error("请输入搜索关键词");
+        }
+        return R.success(scheduleService.searchByTitle(keyword));
+    }
 }

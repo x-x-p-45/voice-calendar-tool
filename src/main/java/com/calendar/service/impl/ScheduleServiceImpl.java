@@ -178,4 +178,28 @@ public class ScheduleServiceImpl implements ScheduleService {
     public int updateRemindStatus(Integer id, Integer isRemind) {
         return scheduleMapper.updateRemindStatus(id, isRemind);
     }
+
+    @Override
+    public int batchDelete(List<Integer> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        return scheduleMapper.batchDelete(ids);
+    }
+
+    @Override
+    public int batchUpdateRemind(List<Integer> ids, Integer isRemind) {
+        if (ids == null || ids.isEmpty()) {
+            return 0;
+        }
+        return scheduleMapper.batchUpdateRemind(ids, isRemind);
+    }
+
+    @Override
+    public List<Schedule> searchByTitle(String keyword) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return scheduleMapper.selectAll();
+        }
+        return scheduleMapper.searchByTitle(keyword.trim());
+    }
 }
