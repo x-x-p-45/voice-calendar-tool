@@ -1,4 +1,8 @@
 # 生产环境配置（Railway 免费版 512MB 优化）
+spring:
+  jackson:
+    time-zone: Asia/Shanghai
+
 springdoc:
   swagger-ui:
     enabled: false
