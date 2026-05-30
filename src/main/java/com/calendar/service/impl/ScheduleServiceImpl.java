@@ -224,10 +224,22 @@ public class ScheduleServiceImpl implements ScheduleService {
                 } else if (period.contains("晚上")) {
                     if (h != 12) h += 12;
                 }
+            } else {
+                // 未指定时段：智能推断
+                // 1-7点 → 默认下午/晚上（用户不太可能在凌晨1-7点安排日程）
+                if (h >= 1 && h <= 7) {
+                    h += 12;
+                }
+                // 8-12点 → 保持上午（合理的工作时间）
+                // 13-23 → 已为24小时制，保持
             }
             return new int[]{h, min};
         }
-        return new int[]{9, 0};
+
+        // 无时间信息：根据当前时间推断默认值
+        int currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
+        // 当前是上午 → 默认上午9点；当前是下午/晚上 → 默认下午2点
+        return new int[]{currentHour < 12 ? 9 : 14, 0};
     }
 
     /** 将中文数字替换为阿拉伯数字（支持 零～三十 以及 半→30分） */
