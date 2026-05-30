@@ -337,16 +337,24 @@
         </div>
 
         <!-- 提醒状态栏 -->
-        <div id="permBar" style="display:none;background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:8px 12px;margin-bottom:12px;font-size:13px">
-            ⚠️ 桌面通知未开启，到时间无法提醒！
-            <button onclick="requestNotifyDirect()" style="margin-left:8px;padding:4px 12px;background:#ffc107;border:none;border-radius:4px;cursor:pointer;font-weight:600">🔔 点击开启通知</button>
-            <span style="display:block;margin-top:4px;color:#888;font-size:11px">如无效：Edge 地址栏输入 edge://settings/content/notifications → 在「允许」中添加 http://localhost:8080</span>
-        </div>
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;color:var(--text-secondary)">
             <span id="reminderStatus">⏳ 检测中...</span>
             <button onclick="testReminder()" style="font-size:11px;padding:2px 8px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer">🔔 测试提醒</button>
             <button onclick="addOneMinReminder()" style="font-size:11px;padding:2px 8px;background:#e0e7ff;border:1px solid #a5b4fc;border-radius:6px;cursor:pointer">⏱ 1分钟后提醒</button>
         </div>
+
+        <!-- 提醒弹窗 -->
+        <div id="alertModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;justify-content:center;align-items:center">
+            <div style="background:#fff;border-radius:16px;padding:32px;text-align:center;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,0.3);animation:popIn 0.3s ease">
+                <div style="font-size:56px;margin-bottom:12px">🔔</div>
+                <h2 style="margin:0 0 8px" id="alertTitle">日程提醒</h2>
+                <p style="color:#64748b;margin:0 0 20px" id="alertBody">到时间了！</p>
+                <button onclick="closeAlert()" style="padding:10px 40px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:16px;cursor:pointer;font-weight:600">✅ 知道了</button>
+            </div>
+        </div>
+        <style>
+            @keyframes popIn { from { transform:scale(0.7);opacity:0 } to { transform:scale(1);opacity:1 } }
+        </style>
 
         <!-- 筛选栏 -->
         <div class="filter-bar">
@@ -685,88 +693,58 @@
             if (e.key === 'Enter') createSchedule();
         });
 
-        // ========== 定时提醒 ==========
+        // ========== 定时提醒（页面内弹窗 + 提示音） ==========
         let remindedIds = new Set();
 
+        function showAlert(title, body) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertBody').textContent = body;
+            document.getElementById('alertModal').style.display = 'flex';
+            try {
+                var ctx = new (window.AudioContext || window.webkitAudioContext)();
+                var osc = ctx.createOscillator(); var gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = 800; osc.type = 'sine';
+                gain.gain.setValueAtTime(0.3, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.5);
+                osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 1.5);
+            } catch(e) {}
+        }
+
+        function closeAlert() {
+            document.getElementById('alertModal').style.display = 'none';
+        }
+
         function checkReminders() {
-            const now = new Date();
-            const nowStr = now.getFullYear() + '-' +
+            var now = new Date();
+            var nowStr = now.getFullYear() + '-' +
                 String(now.getMonth()+1).padStart(2,'0') + '-' +
                 String(now.getDate()).padStart(2,'0') + ' ' +
                 String(now.getHours()).padStart(2,'0') + ':' +
                 String(now.getMinutes()).padStart(2,'0');
-            api(`${API}/list`).then(data => {
+            api('/schedule/list').then(function(data) {
                 if (data.code !== 200) return;
-                data.data.forEach(s => {
+                data.data.forEach(function(s) {
                     if (!s.isRemind) return;
-                    const schTime = (s.scheduleTime || '').slice(0, 16); // "yyyy-MM-dd HH:mm"
+                    var schTime = (s.scheduleTime || '').slice(0, 16);
                     if (schTime === nowStr && !remindedIds.has(s.id)) {
                         remindedIds.add(s.id);
-                        // 浏览器桌面通知
-                        if (Notification.permission === 'granted') {
-                            new Notification('🔔 日程提醒', {
-                                body: `📅 ${s.eventTitle}\n⏰ ${formatTime(s.scheduleTime)}`,
-                                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="80" font-size="80">🔔</text></svg>',
-                                tag: 'schedule-reminder',
-                                requireInteraction: true
-                            });
-                        }
-                        // 页面内弹窗
-                        showToast(`⏰ 提醒：${s.eventTitle}`, 'error');
+                        showAlert('⏰ ' + s.eventTitle, formatTime(s.scheduleTime));
+                        showToast('⏰ 提醒：' + s.eventTitle, 'error');
                     }
                 });
             });
         }
 
-        // ========== 通知权限 ==========
-        function updatePermUI() {
-            var bar = document.getElementById('permBar');
-            var st = document.getElementById('reminderStatus');
-            if (!('Notification' in window)) {
-                bar.style.display = 'block';
-                st.textContent = '⚠️ 浏览器不支持通知，请用 Chrome';
-                return;
-            }
-            if (Notification.permission === 'granted') {
-                bar.style.display = 'none';
-                return;
-            }
-            bar.style.display = 'block';
-            st.textContent = Notification.permission === 'denied'
-                ? '⛔ 通知已被阻止，请手动开启'
-                : '⚠️ 通知未开启';
-        }
-
-        function requestNotifyDirect() {
-            if (!('Notification' in window)) return;
-            Notification.requestPermission().then(function(p) {
-                console.log('Notification permission:', p);
-                updatePermUI();
-                if (p === 'granted') showToast('✅ 通知已开启！', 'success');
-                else showToast('⚠️ 请手动：Edge地址栏输入 edge://settings/content/notifications → 允许 localhost:8080', 'error');
-            });
-        }
-
         function testReminder() {
-            if (!('Notification' in window)) {
-                showToast('⚠️ 请使用 Chrome 浏览器', 'error'); return;
-            }
-            if (Notification.permission === 'granted') {
-                new Notification('🔔 测试提醒', { body: '桌面通知功能正常！', requireInteraction: true });
-                showToast('✅ 通知已发送', 'success');
-                return;
-            }
-            requestNotifyDirect();
+            showAlert('🔔 测试提醒', '页面弹窗 + 提示音 正常工作！');
         }
 
-        updatePermUI();
-
-        // ========== 定时检查 ==========
         setInterval(checkReminders, 20000);
         checkReminders();
 
         function updateReminderStatus() {
-            api(`${API}/list`).then(function(data) {
+            api('/schedule/list').then(function(data) {
                 if (data.code !== 200) return;
                 var now = new Date();
                 var upcoming = data.data.filter(function(s) {
@@ -776,26 +754,26 @@
                 if (upcoming.length > 0) {
                     var diffMin = Math.round((new Date(upcoming[0].scheduleTime) - now) / 60000);
                     st.textContent = '⏰ 下次提醒：' + upcoming[0].eventTitle + '（' + diffMin + '分钟后）';
-                } else if (Notification.permission === 'granted') {
-                    st.textContent = '✅ 通知已就绪';
+                } else {
+                    st.textContent = '✅ 提醒就绪（弹窗+提示音）';
                 }
             });
         }
         setInterval(updateReminderStatus, 30000);
         updateReminderStatus();
 
-        // 快速创建1分钟后提醒
-        async function addOneMinReminder() {
-            const now = new Date(Date.now() + 60000);
-            const timeStr = now.getFullYear() + '-' +
+        function addOneMinReminder() {
+            var now = new Date(Date.now() + 60000);
+            var timeStr = now.getFullYear() + '-' +
                 String(now.getMonth()+1).padStart(2,'0') + '-' +
                 String(now.getDate()).padStart(2,'0') + ' ' +
                 String(now.getHours()).padStart(2,'0') + ':' +
                 String(now.getMinutes()).padStart(2,'0');
-            await api(`${API}/voiceAdd?voiceText=${encodeURIComponent(timeStr + ' 测试提醒')}`, { method: 'POST' });
-            showToast('✅ 1分钟后将触发提醒！', 'success');
-            loadAllSchedules();
-            updateReminderStatus();
+            api('/schedule/voiceAdd?voiceText=' + encodeURIComponent(timeStr + ' 测试提醒'), { method: 'POST' }).then(function() {
+                showToast('✅ 1分钟后将触发提醒！', 'success');
+                loadAllSchedules();
+                updateReminderStatus();
+            });
         }
 
         // 初始加载
