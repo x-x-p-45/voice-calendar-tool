@@ -612,12 +612,16 @@
 
         function checkReminders() {
             const now = new Date();
-            const nowStr = now.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+            const nowStr = now.getFullYear() + '-' +
+                String(now.getMonth()+1).padStart(2,'0') + '-' +
+                String(now.getDate()).padStart(2,'0') + ' ' +
+                String(now.getHours()).padStart(2,'0') + ':' +
+                String(now.getMinutes()).padStart(2,'0');
             api(`${API}/list`).then(data => {
                 if (data.code !== 200) return;
                 data.data.forEach(s => {
                     if (!s.isRemind) return;
-                    const schTime = (s.scheduleTime || '').slice(0, 16); // yyyy-MM-ddTHH:mm
+                    const schTime = (s.scheduleTime || '').slice(0, 16); // "yyyy-MM-dd HH:mm"
                     if (schTime === nowStr && !remindedIds.has(s.id)) {
                         remindedIds.add(s.id);
                         // 浏览器桌面通知
@@ -643,8 +647,8 @@
             }, { once: true });
         }
 
-        // 每30秒检查一次
-        setInterval(checkReminders, 30000);
+        // 每20秒检查一次
+        setInterval(checkReminders, 20000);
         checkReminders();
 
         // 初始加载
