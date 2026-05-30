@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎙️ 语音日历</title>
+    <style>
+        :root {
+            --primary: #4f46e5;
+            --primary-light: #818cf8;
+            --danger: #ef4444;
+            --success: #22c55e;
+            --bg: #f8fafc;
+            --card: #ffffff;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .container { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+        header {
+            text-align: center;
+            padding: 40px 0 32px;
+        }
+        header h1 { font-size: 28px; margin-bottom: 6px; }
+        header p { color: var(--text-secondary); font-size: 14px; }
+
+        /* 输入区域 */
+        .input-card {
+            background: var(--card);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            margin-bottom: 24px;
+        }
+        .input-card label {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 8px;
+            display: block;
+        }
+        .input-row {
+            display: flex;
+            gap: 10px;
+        }
+        .input-row input {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color .2s;
+        }
+        .input-row input:focus { border-color: var(--primary); }
+        .input-row button {
+            padding: 10px 20px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background .2s;
+            white-space: nowrap;
+        }
+        .input-row button:hover { background: var(--primary-light); }
+        .input-hint {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        /* 筛选 */
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            align-items: center;
+        }
+        .filter-bar input[type="date"] {
+            padding: 8px 12px;
+            border: 1.5px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+        }
+        .filter-bar button {
+            padding: 8px 16px;
+            background: var(--text);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        /* 日程列表 */
+        .schedule-list { display: flex; flex-direction: column; gap: 10px; }
+        .schedule-card {
+            background: var(--card);
+            border-radius: 10px;
+            padding: 16px 20px;
+            box-shadow: var(--shadow);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            transition: transform .15s;
+        }
+        .schedule-card:hover { transform: translateY(-1px); }
+        .schedule-info { flex: 1; min-width: 0; }
+        .schedule-title {
+            font-weight: 600;
+            font-size: 16px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .schedule-time {
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        .schedule-actions {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        .remind-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all .2s;
+            border: none;
+        }
+        .remind-on { background: #fef3c7; color: #d97706; }
+        .remind-off { background: #f1f5f9; color: #94a3b8; }
+        .btn-delete {
+            padding: 6px 14px;
+            background: #fff;
+            color: var(--danger);
+            border: 1.5px solid #fecaca;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all .2s;
+        }
+        .btn-delete:hover { background: #fef2f2; }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-secondary);
+        }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 24px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 999;
+            opacity: 0;
+            transition: opacity .3s;
+        }
+        .toast.show { opacity: 1; }
+        .toast-success { background: var(--success); }
+        .toast-error { background: var(--danger); }
+
+        @media (max-width: 480px) {
+            .input-row { flex-direction: column; }
+            .filter-bar { flex-wrap: wrap; }
+            .schedule-card { flex-direction: column; align-items: flex-start; }
+            .schedule-actions { width: 100%; justify-content: flex-end; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎙️ 语音日历</h1>
+            <p>语音输入 → 智能解析 → 日程管理</p>
+        </header>
+
+        <!-- 语音输入区 -->
+        <div class="input-card">
+            <label>📝 输入语音文本（模拟语音识别结果）</label>
+            <div class="input-row">
+                <input type="text" id="voiceInput" placeholder="例如：明天下午3点项目周会">
+                <button onclick="createSchedule()">🎤 创建日程</button>
+            </div>
+            <p class="input-hint">💡 支持：今天/明天/后天 + 上午/下午/晚上 + 时间点，或 yyyy-MM-dd HH:mm</p>
+        </div>
+
+        <!-- 筛选栏 -->
+        <div class="filter-bar">
+            <input type="date" id="startDate">
+            <span>至</span>
+            <input type="date" id="endDate">
+            <button onclick="filterSchedules()">🔍 筛选</button>
+            <button onclick="loadAllSchedules()" style="background:#64748b">🔄 全部</button>
+            <span id="countInfo" style="font-size:13px;color:var(--text-secondary);margin-left:auto"></span>
+        </div>
+
+        <!-- 日程列表 -->
+        <div class="schedule-list" id="scheduleList">
+            <div class="empty-state">
+                <div class="icon">📭</div>
+                <p>暂无日程，输入语音文本开始创建吧！</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const API = '/schedule';
+
+        async function api(url, options = {}) {
+            const res = await fetch(url, options);
+            return res.json();
+        }
+
+        function showToast(msg, type = 'success') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = `toast toast-${type} show`;
+            setTimeout(() => t.classList.remove('show'), 2500);
+        }
+
+        function formatTime(str) {
+            if (!str) return '';
+            const d = new Date(str);
+            return d.toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+        }
+
+        function renderSchedules(list) {
+            const container = document.getElementById('scheduleList');
+            document.getElementById('countInfo').textContent = `共 ${list.length} 条`;
+
+            if (!list.length) {
+                container.innerHTML = `<div class="empty-state"><div class="icon">📭</div><p>暂无日程</p></div>`;
+                return;
+            }
+            container.innerHTML = list.map(s => `
+                <div class="schedule-card">
+                    <div class="schedule-info">
+                        <div class="schedule-title">${s.eventTitle || '未命名'}</div>
+                        <div class="schedule-time">📅 ${formatTime(s.scheduleTime)}</div>
+                    </div>
+                    <div class="schedule-actions">
+                        <button class="remind-badge ${s.isRemind ? 'remind-on' : 'remind-off'}"
+                                onclick="toggleRemind(${s.id}, ${s.isRemind})">
+                            ${s.isRemind ? '🔔 已提醒' : '🔕 未提醒'}
+                        </button>
+                        <button class="btn-delete" onclick="deleteSchedule(${s.id})">🗑 删除</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function createSchedule() {
+            const input = document.getElementById('voiceInput');
+            const text = input.value.trim();
+            if (!text) { showToast('请输入语音文本', 'error'); return; }
+            const data = await api(`${API}/voiceAdd?voiceText=${encodeURIComponent(text)}`, { method: 'POST' });
+            if (data.code === 200) {
+                showToast('✅ 日程创建成功！');
+                input.value = '';
+                loadAllSchedules();
+            } else {
+                showToast(data.msg || '创建失败', 'error');
+            }
+        }
+
+        async function loadAllSchedules() {
+            document.getElementById('startDate').value = '';
+            document.getElementById('endDate').value = '';
+            const data = await api(`${API}/list`);
+            if (data.code === 200) renderSchedules(data.data);
+        }
+
+        async function filterSchedules() {
+            const s = document.getElementById('startDate').value;
+            const e = document.getElementById('endDate').value;
+            if (!s || !e) { showToast('请选择日期范围', 'error'); return; }
+            const data = await api(`${API}/listByRange?start=${s}&end=${e}`);
+            if (data.code === 200) renderSchedules(data.data);
+        }
+
+        async function deleteSchedule(id) {
+            if (!confirm('确定删除这条日程吗？')) return;
+            const data = await api(`${API}/delete/${id}`, { method: 'DELETE' });
+            if (data.code === 200) {
+                showToast('已删除');
+                loadAllSchedules();
+            } else {
+                showToast(data.msg, 'error');
+            }
+        }
+
+        async function toggleRemind(id, current) {
+            const next = current ? 0 : 1;
+            const data = await api(`${API}/remind/${id}?isRemind=${next}`, { method: 'PUT' });
+            if (data.code === 200) {
+                showToast(next ? '🔔 已开启提醒' : '🔕 已关闭提醒');
+                loadAllSchedules();
+            } else {
+                showToast(data.msg, 'error');
+            }
+        }
+
+        // 回车快捷创建
+        document.getElementById('voiceInput').addEventListener('keydown', e => {
+            if (e.key === 'Enter') createSchedule();
+        });
+
+        // 初始加载
+        loadAllSchedules();
+    </script>
+</body>
+</html>
