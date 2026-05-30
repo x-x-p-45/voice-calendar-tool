@@ -42,6 +42,13 @@ public class ScheduleServiceImpl implements ScheduleService {
         schedule.setIsRemind(1);
 
         Date scheduleTime = extractTime(voiceText);
+        // 如果解析出的时间已经过去，顺延到明天同一时间
+        if (scheduleTime.before(new Date())) {
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(scheduleTime);
+            cal.add(Calendar.DAY_OF_YEAR, 1);
+            scheduleTime = cal.getTime();
+        }
         schedule.setScheduleTime(scheduleTime);
 
         // 提取事件标题（去除时间描述后的文本）

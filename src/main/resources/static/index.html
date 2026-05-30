@@ -383,10 +383,16 @@
         }
 
         function hasAmbiguousTime(text) {
-            // 检查是否只有纯数字时间（如 "3点"）而没有时段词
+            // 检查是否只有时间而没有时段词（支持数字和中文数字）
             const hasPeriod = /凌晨|早上|上午|中午|下午|晚上/.test(text);
-            const bareHour = /(?<![\d])([1-7])\s*[点:：]/.test(text);
+            const bareHour = /(?<![\d一二三四五六七八九])([1-7一二三四五六七])\s*[点:：]/.test(text);
             return bareHour && !hasPeriod;
+        }
+
+        // 中文数字→阿拉伯数字（前端版，仅用于检测）
+        function toArabic(text) {
+            const map = { '一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9' };
+            return text.replace(/[一二三四五六七八九]/g, c => map[c] || c);
         }
 
         async function createSchedule(forceText) {
@@ -396,7 +402,8 @@
 
             // 智能确认：检测到模糊时间
             if (!forceText && hasAmbiguousTime(text)) {
-                const match = text.match(/([1-7])\s*[点:：]/);
+                const normalized = toArabic(text);
+                const match = normalized.match(/([1-7])\s*[点:：]/);
                 const hour = match ? match[1] : '';
                 const choice = confirm(
                     `⏰ 您说的是「${hour}点」是：\n\n` +
@@ -404,14 +411,16 @@
                     `👉 点击【取消】= 凌晨${hour}点 (${hour}:00)`
                 );
                 if (choice) {
-                    text = text.replace(/([1-7])\s*[点:：]/, '下午$1点');
+                    text = text.replace(/([一二三四五六七1-7])\s*[点:：]/, '下午$1点');
                 } else {
-                    text = text.replace(/([1-7])\s*[点:：]/, '凌晨$1点');
+                    text = text.replace(/([一二三四五六七1-7])\s*[点:：]/, '早上$1点');
                 }
             }
 
             const data = await api(`${API}/voiceAdd?voiceText=${encodeURIComponent(text)}`, { method: 'POST' });
             if (data.code === 200) {
+                const now = new Date();
+                const createdTime = data.data; // 后端返回的日程时间
                 showToast('✅ 日程创建成功！');
                 input.value = '';
                 loadAllSchedules();
