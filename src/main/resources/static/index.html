@@ -607,6 +607,46 @@
             if (e.key === 'Enter') createSchedule();
         });
 
+        // ========== 定时提醒 ==========
+        let remindedIds = new Set();
+
+        function checkReminders() {
+            const now = new Date();
+            const nowStr = now.toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+            api(`${API}/list`).then(data => {
+                if (data.code !== 200) return;
+                data.data.forEach(s => {
+                    if (!s.isRemind) return;
+                    const schTime = (s.scheduleTime || '').slice(0, 16); // yyyy-MM-ddTHH:mm
+                    if (schTime === nowStr && !remindedIds.has(s.id)) {
+                        remindedIds.add(s.id);
+                        // 浏览器桌面通知
+                        if (Notification.permission === 'granted') {
+                            new Notification('🔔 日程提醒', {
+                                body: `📅 ${s.eventTitle}\n⏰ ${formatTime(s.scheduleTime)}`,
+                                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="80" font-size="80">🔔</text></svg>',
+                                tag: 'schedule-reminder',
+                                requireInteraction: true
+                            });
+                        }
+                        // 页面内弹窗
+                        showToast(`⏰ 提醒：${s.eventTitle}`, 'error');
+                    }
+                });
+            });
+        }
+
+        // 请求通知权限
+        if ('Notification' in window && Notification.permission === 'default') {
+            document.getElementById('micBtn').addEventListener('click', () => {
+                Notification.requestPermission();
+            }, { once: true });
+        }
+
+        // 每30秒检查一次
+        setInterval(checkReminders, 30000);
+        checkReminders();
+
         // 初始加载
         renderCalendar();
         loadAllSchedules();
