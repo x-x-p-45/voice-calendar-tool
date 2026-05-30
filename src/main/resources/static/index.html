@@ -336,6 +336,13 @@
             <div class="cal-grid" id="calGrid"></div>
         </div>
 
+        <!-- 提醒状态栏 -->
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;color:var(--text-secondary)">
+            <span id="reminderStatus">⏳ 检测中...</span>
+            <button onclick="testReminder()" style="font-size:11px;padding:2px 8px;background:#fef3c7;border:1px solid #fcd34d;border-radius:6px;cursor:pointer">🔔 测试提醒</button>
+            <button onclick="addOneMinReminder()" style="font-size:11px;padding:2px 8px;background:#e0e7ff;border:1px solid #a5b4fc;border-radius:6px;cursor:pointer">⏱ 1分钟后提醒</button>
+        </div>
+
         <!-- 筛选栏 -->
         <div class="filter-bar">
             <input type="date" id="startDate">
@@ -716,6 +723,55 @@
         // 每20秒检查一次
         setInterval(checkReminders, 20000);
         checkReminders();
+
+        // 显示下次提醒
+        function updateReminderStatus() {
+            api(`${API}/list`).then(data => {
+                if (data.code !== 200) return;
+                const now = new Date();
+                const upcoming = data.data.filter(s => s.isRemind && new Date(s.scheduleTime) > now)
+                    .sort((a,b) => new Date(a.scheduleTime) - new Date(b.scheduleTime));
+                if (upcoming.length > 0) {
+                    const next = upcoming[0];
+                    const diffMin = Math.round((new Date(next.scheduleTime) - now) / 60000);
+                    document.getElementById('reminderStatus').textContent =
+                        `⏰ 下次提醒：${next.eventTitle}（${diffMin}分钟后）`;
+                } else {
+                    document.getElementById('reminderStatus').textContent = '✅ 暂无待提醒日程';
+                }
+            });
+        }
+        setInterval(updateReminderStatus, 30000);
+        updateReminderStatus();
+
+        // 测试：立刻弹出通知
+        function testReminder() {
+            if (Notification.permission !== 'granted') {
+                Notification.requestPermission().then(p => {
+                    if (p === 'granted') showToast('✅ 权限已开启，再点一次测试');
+                });
+                return;
+            }
+            new Notification('🔔 测试提醒', {
+                body: '如果您看到这条消息，说明桌面通知功能正常！',
+                requireInteraction: true
+            });
+            showToast('✅ 桌面通知已发送！', 'success');
+        }
+
+        // 快速创建1分钟后提醒
+        async function addOneMinReminder() {
+            const now = new Date(Date.now() + 60000);
+            const timeStr = now.getFullYear() + '-' +
+                String(now.getMonth()+1).padStart(2,'0') + '-' +
+                String(now.getDate()).padStart(2,'0') + ' ' +
+                String(now.getHours()).padStart(2,'0') + ':' +
+                String(now.getMinutes()).padStart(2,'0');
+            await api(`${API}/voiceAdd?voiceText=${encodeURIComponent(timeStr + ' 测试提醒')}`, { method: 'POST' });
+            showToast('✅ 1分钟后将触发提醒！', 'success');
+            loadAllSchedules();
+            updateReminderStatus();
+        }
 
         // 初始加载
         renderCalendar();
