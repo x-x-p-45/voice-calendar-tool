@@ -382,10 +382,34 @@
             `).join('');
         }
 
-        async function createSchedule() {
+        function hasAmbiguousTime(text) {
+            // 检查是否只有纯数字时间（如 "3点"）而没有时段词
+            const hasPeriod = /凌晨|早上|上午|中午|下午|晚上/.test(text);
+            const bareHour = /(?<![\d])([1-7])\s*[点:：]/.test(text);
+            return bareHour && !hasPeriod;
+        }
+
+        async function createSchedule(forceText) {
             const input = document.getElementById('voiceInput');
-            const text = input.value.trim();
+            let text = forceText || input.value.trim();
             if (!text) { showToast('请输入语音文本', 'error'); return; }
+
+            // 智能确认：检测到模糊时间
+            if (!forceText && hasAmbiguousTime(text)) {
+                const match = text.match(/([1-7])\s*[点:：]/);
+                const hour = match ? match[1] : '';
+                const choice = confirm(
+                    `⏰ 您说的是「${hour}点」是：\n\n` +
+                    `👉 点击【确定】= 下午${hour}点 (${parseInt(hour)+12}:00)\n` +
+                    `👉 点击【取消】= 凌晨${hour}点 (${hour}:00)`
+                );
+                if (choice) {
+                    text = text.replace(/([1-7])\s*[点:：]/, '下午$1点');
+                } else {
+                    text = text.replace(/([1-7])\s*[点:：]/, '凌晨$1点');
+                }
+            }
+
             const data = await api(`${API}/voiceAdd?voiceText=${encodeURIComponent(text)}`, { method: 'POST' });
             if (data.code === 200) {
                 showToast('✅ 日程创建成功！');
