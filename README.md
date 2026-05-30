@@ -26,9 +26,21 @@
 | 开发框架 | SpringBoot | 2.7.15 |
 | 数据库 | MySQL | 5.7+ / 8.0+ |
 | 持久层 | MyBatis | 2.2.2 |
+| 接口文档 | SpringDoc OpenAPI | 1.7.0 |
 | 语音能力 | 第三方 ASR 接口（HTTP 调用） | — |
 | 构建工具 | Maven | 3.8+ |
 | 版本管理 | Git + GitHub | — |
+
+### 第三方依赖清单
+
+| 依赖 | GroupId | ArtifactId | 用途 | 
+|------|---------|------------|------|
+| SpringBoot Web | org.springframework.boot | spring-boot-starter-web | Web 框架 |
+| MyBatis Starter | org.mybatis.spring.boot | mybatis-spring-boot-starter | ORM 持久层 |
+| MySQL Connector | com.mysql | mysql-connector-j | 数据库驱动 |
+| SpringDoc OpenAPI | org.springdoc | springdoc-openapi-ui | API 文档生成 |
+| Apache HttpClient | org.apache.httpcomponents | httpclient | HTTP 请求（调用 ASR） |
+| Lombok | org.projectlombok | lombok | 简化实体类代码 |
 
 ---
 
