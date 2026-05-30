@@ -49,6 +49,7 @@
         .input-row {
             display: flex;
             gap: 10px;
+            align-items: center;
         }
         .input-row input {
             flex: 1;
@@ -69,14 +70,43 @@
             font-size: 15px;
             cursor: pointer;
             font-weight: 600;
-            transition: background .2s;
+            transition: all .2s;
             white-space: nowrap;
         }
         .input-row button:hover { background: var(--primary-light); }
-        .input-hint {
-            font-size: 12px;
-            color: var(--text-secondary);
-            margin-top: 8px;
+
+        /* 语音按钮 */
+        .btn-mic {
+            width: 44px; height: 44px;
+            border-radius: 50% !important;
+            padding: 0 !important;
+            font-size: 20px !important;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--danger) !important;
+            position: relative;
+            flex-shrink: 0;
+        }
+        .btn-mic:hover { background: #dc2626 !important; }
+        .btn-mic.listening {
+            animation: pulse 1.2s infinite;
+            box-shadow: 0 0 0 0 rgba(239,68,68,.5);
+        }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239,68,68,.5); }
+            70% { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+            100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+        }
+        .listening-text {
+            font-size: 13px;
+            color: var(--danger);
+            margin-top: 6px;
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
 
         /* 筛选 */
@@ -204,11 +234,13 @@
 
         <!-- 语音输入区 -->
         <div class="input-card">
-            <label>📝 输入语音文本（模拟语音识别结果）</label>
+            <label>🎤 点击麦克风开始语音输入（支持 Chrome/Edge 浏览器）</label>
             <div class="input-row">
-                <input type="text" id="voiceInput" placeholder="例如：明天下午3点项目周会">
-                <button onclick="createSchedule()">🎤 创建日程</button>
+                <button class="btn-mic" id="micBtn" onclick="toggleVoice()" title="点击开始语音输入">🎤</button>
+                <input type="text" id="voiceInput" placeholder="语音识别结果会显示在这里...">
+                <button onclick="createSchedule()">📅 创建日程</button>
             </div>
+            <div class="listening-text" id="listeningHint" style="display:none">🔴 正在聆听，请说话...</div>
             <p class="input-hint">💡 支持：今天/明天/后天 + 上午/下午/晚上 + 时间点，或 yyyy-MM-dd HH:mm</p>
         </div>
 
@@ -328,6 +360,99 @@
                 loadAllSchedules();
             } else {
                 showToast(data.msg, 'error');
+            }
+        }
+
+        // ========== 语音识别 ==========
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        function initRecognition() {
+            if (!SpeechRecognition) {
+                showToast('⚠️ 当前浏览器不支持语音识别，请使用 Chrome 或 Edge', 'error');
+                return null;
+            }
+            const rec = new SpeechRecognition();
+            rec.lang = 'zh-CN';
+            rec.interimResults = true;
+            rec.continuous = false;
+            rec.maxAlternatives = 1;
+
+            rec.onstart = () => {
+                isListening = true;
+                document.getElementById('micBtn').classList.add('listening');
+                document.getElementById('micBtn').textContent = '🔴';
+                document.getElementById('listeningHint').style.display = 'block';
+                document.getElementById('voiceInput').value = '';
+                document.getElementById('voiceInput').placeholder = '正在聆听...';
+            };
+
+            rec.onresult = (event) => {
+                let finalText = '';
+                let interimText = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const text = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalText += text;
+                    } else {
+                        interimText += text;
+                    }
+                }
+                const displayText = finalText || interimText;
+                document.getElementById('voiceInput').value = displayText;
+                document.getElementById('voiceInput').placeholder = displayText || '正在聆听...';
+                // 识别到最终结果后自动创建日程
+                if (finalText.trim()) {
+                    stopListening();
+                    createSchedule();
+                }
+            };
+
+            rec.onerror = (event) => {
+                stopListening();
+                if (event.error === 'not-allowed') {
+                    showToast('⚠️ 请允许麦克风权限后重试', 'error');
+                } else if (event.error !== 'aborted') {
+                    showToast('⚠️ 语音识别失败：' + event.error, 'error');
+                }
+            };
+
+            rec.onend = () => {
+                stopListening();
+            };
+
+            return rec;
+        }
+
+        function toggleVoice() {
+            if (isListening) {
+                stopListening();
+            } else {
+                startListening();
+            }
+        }
+
+        function startListening() {
+            if (!recognition) recognition = initRecognition();
+            if (!recognition) return;
+            try {
+                recognition.start();
+            } catch (e) {
+                stopListening();
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            document.getElementById('micBtn').classList.remove('listening');
+            document.getElementById('micBtn').textContent = '🎤';
+            document.getElementById('listeningHint').style.display = 'none';
+            if (document.getElementById('voiceInput').placeholder === '正在聆听...') {
+                document.getElementById('voiceInput').placeholder = '例如：明天下午3点项目周会';
+            }
+            if (recognition) {
+                try { recognition.stop(); } catch (e) {}
             }
         }
 
